@@ -5,22 +5,34 @@ package sid.cryptowatch;
  */
 
 class Prices{
-    String BTC;
-    String XRP;
-    String ETH;
-    String BCH;
-    String LTC;
-    String MIOTA;
-    String OMG;
-    String GNT;
+    float BTC;
+    float XRP;
+    float ETH;
+    float BCH;
+    float LTC;
+    Prices(){
+        BTC = 0;
+        XRP = 0;
+        ETH = 0;
+        BCH = 0;
+        LTC = 0;
+    }
 }
 class Crypto{
-    String last_traded_price;
-    String lowest_ask;
-    String highest_bid;
-    String min_24hrs;
-    String max_24hrs;
-    String vol_24hrs;
+    float last_traded_price;
+    float lowest_ask;
+    float highest_bid;
+    float min_24hrs;
+    float max_24hrs;
+    float vol_24hrs;
+    Crypto(){
+        last_traded_price = 0;
+        lowest_ask = 0;
+        highest_bid = 0;
+        min_24hrs = 0;
+        max_24hrs = 0;
+        vol_24hrs = 0;
+    }
 }
 class Stats{
     Crypto BTC;
@@ -28,9 +40,20 @@ class Stats{
     Crypto ETH;
     Crypto LTC;
     Crypto BCH;
+    Stats(){
+        BTC = new Crypto();
+        XRP = new Crypto();
+        ETH = new Crypto();
+        LTC = new Crypto();
+        BCH = new Crypto();
+    }
 }
 
 public class KoinexJSONTicker {
     Prices prices;
     Stats stats;
+    KoinexJSONTicker(){
+        prices = new Prices();
+        stats = new Stats();
+    }
 }
