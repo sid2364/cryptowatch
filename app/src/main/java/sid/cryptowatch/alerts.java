@@ -202,6 +202,7 @@ public class alerts extends AppCompatActivity {
                 NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
                 // notificationID allows you to update the notification later on.
                 notificationManager.notify(getNumberForCurrency(parts[0]), notificationBuilder.build());
+                db.deleteAlert(parts[1], parts[0]);
             }
         }
         return koinexJSONTicker;
