@@ -54,10 +54,9 @@ public class add_alert extends AppCompatActivity implements View.OnClickListener
             }
         });
 
-
         builder = new AlertDialog.Builder(this);
         builder.setTitle("Confirm");
-        builder.setMessage("Add this alert?");
+        builder.setMessage("Add alert?");
         builder.setPositiveButton("YES", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
@@ -66,12 +65,18 @@ public class add_alert extends AppCompatActivity implements View.OnClickListener
                     Toast.makeText(getApplicationContext(), "Not a valid amount!", Toast.LENGTH_SHORT).show();
                     return;
                 }
+                try{
+                    Float.parseFloat(price.getText().toString());
+                }catch (Exception e){
+                    Toast.makeText(getApplicationContext(), "Not a valid amount!", Toast.LENGTH_SHORT).show();
+                    return;
+                }
 
                 SimpleDatabaseHelper db = new SimpleDatabaseHelper(getApplicationContext());
                 db.addAlert(price.getText().toString(), selected_currency);
                 dialog.dismiss();
                 Snackbar mySnackbar = Snackbar.make(findViewById(R.id.constraintLayout),
-                        "Added an alert!", Snackbar.LENGTH_SHORT);
+                        "Will notify you when " + selected_currency + " reaches Rs. " + price.getText().toString() + "!", Snackbar.LENGTH_SHORT);
                 mySnackbar.show();
             }
         });

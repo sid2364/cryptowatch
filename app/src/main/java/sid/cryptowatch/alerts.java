@@ -1,12 +1,15 @@
 package sid.cryptowatch;
 
 import android.app.Activity;
+import android.app.NotificationManager;
+import android.content.Context;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.app.NotificationCompat;
 import android.support.v7.widget.Toolbar;
 import android.view.View;
 import android.view.Menu;
@@ -56,6 +59,7 @@ public class alerts extends AppCompatActivity {
     SimpleAdapter adapter;
     static JSONObject jsonObject = null;
     static KoinexJSONTicker koinexJSONTicker;
+    SimpleDatabaseHelper db;
     String jsonText;
 
     @Override
@@ -66,6 +70,10 @@ public class alerts extends AppCompatActivity {
         listViewActiveAlerts = findViewById( R.id.listViewPrices);
         koinexJSONTicker = new KoinexJSONTicker();
         setSupportActionBar(toolbar);
+
+        RetrieveDataTask backgroundStuff = new RetrieveDataTask(this);
+        backgroundStuff.execute("https://koinex.in/api/ticker");
+        //new RetrieveDataTask().execute("https://koinex.in/api/ticker");
 
         prices = new HashMap<>();
         listItems = new ArrayList<>();
@@ -104,10 +112,7 @@ public class alerts extends AppCompatActivity {
             }
         });
 
-        RetrieveDataTask backgroundStuff = new RetrieveDataTask(this);
-        backgroundStuff.execute("https://koinex.in/api/ticker");
-        //new RetrieveDataTask().execute("https://koinex.in/api/ticker");
-        SimpleDatabaseHelper db = new SimpleDatabaseHelper(getApplicationContext());
+        db = new SimpleDatabaseHelper(getApplicationContext());
 
     }
     public void callRefresh() {
@@ -117,14 +122,24 @@ public class alerts extends AppCompatActivity {
             Toast.makeText(this.getApplicationContext(), "There might be a problem with your connection.",
                     Toast.LENGTH_LONG).show();
             e.printStackTrace();
+            return;
         } catch (JSONException e) {
             Toast.makeText(alerts.this, "There was a problem in parsing the JSON.",
                     Toast.LENGTH_LONG).show();
             e.printStackTrace();
+            return;
         } catch(Exception e) {
             Toast.makeText(alerts.this, "There was a problem.",
                     Toast.LENGTH_LONG);
+            return;
         }
+        NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this);
+        notificationBuilder.setSmallIcon(R.drawable.ic_launcher_foreground);
+        notificationBuilder.setContentTitle("Latest Prices");
+        notificationBuilder.setContentText("Check the latest prices on cryptowatch!");
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        // notificationID allows you to update the notification later on.
+        notificationManager.notify(2364, notificationBuilder.build());
     }
     public KoinexJSONTicker decodeToParsable() throws JSONException{
         JSONObject stats = jsonObject.getJSONObject("stats");
@@ -134,11 +149,16 @@ public class alerts extends AppCompatActivity {
         JSONObject currencyStatsXRP = stats.getJSONObject("XRP");
         JSONObject currencyStatsLTC = stats.getJSONObject("LTC");
         JSONObject currencyStatsBCH = stats.getJSONObject("BCH");
-        KoinexJSONTicker koinexJSONTicker = new KoinexJSONTicker();
+        //KoinexJSONTicker koinexJSONTicker = new KoinexJSONTicker();
+        koinexJSONTicker.prices.last_BTC = koinexJSONTicker.prices.BTC;
         koinexJSONTicker.prices.BTC = Float.parseFloat(prices.getString("BTC"));
+        koinexJSONTicker.prices.last_ETH = koinexJSONTicker.prices.ETH;
         koinexJSONTicker.prices.ETH = Float.parseFloat(prices.getString("ETH"));
+        koinexJSONTicker.prices.last_XRP = koinexJSONTicker.prices.XRP;
         koinexJSONTicker.prices.XRP = Float.parseFloat(prices.getString("XRP"));
+        koinexJSONTicker.prices.last_BCH = koinexJSONTicker.prices.BCH;
         koinexJSONTicker.prices.BCH = Float.parseFloat(prices.getString("BCH"));
+        koinexJSONTicker.prices.last_LTC = koinexJSONTicker.prices.LTC;
         koinexJSONTicker.prices.LTC = Float.parseFloat(prices.getString("LTC"));
         koinexJSONTicker.stats.BCH.last_traded_price = Float.parseFloat(currencyStatsBCH.getString("last_traded_price"));
         koinexJSONTicker.stats.BTC.last_traded_price = Float.parseFloat(currencyStatsBTC.getString("last_traded_price"));
@@ -170,8 +190,62 @@ public class alerts extends AppCompatActivity {
         koinexJSONTicker.stats.ETH.vol_24hrs = Float.parseFloat(currencyStatsETH.getString("vol_24hrs"));
         koinexJSONTicker.stats.XRP.vol_24hrs = Float.parseFloat(currencyStatsXRP.getString("vol_24hrs"));
         koinexJSONTicker.stats.LTC.vol_24hrs = Float.parseFloat(currencyStatsLTC.getString("vol_24hrs"));
-
+        // check for alerts and send notification
+        String activeAlerts[] = db.getAllAlerts();
+        for(int i = 0; i < activeAlerts.length; i++){
+            String parts[] = activeAlerts[i].split(":");
+            if(checkIfReached(parts[0], parts[1])){
+                NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this);
+                notificationBuilder.setSmallIcon(R.drawable.ic_launcher_foreground);
+                notificationBuilder.setContentTitle("Update");
+                notificationBuilder.setContentText("Price of " + parts[0] + " has reached " + parts[1] +"!");
+                NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                // notificationID allows you to update the notification later on.
+                notificationManager.notify(getNumberForCurrency(parts[0]), notificationBuilder.build());
+            }
+        }
         return koinexJSONTicker;
+    }
+    int getNumberForCurrency(String c){
+        switch (c){
+            case "BTC": return 1;
+            case "ETH": return 2;
+            case "XRP": return 3;
+            case "LTC": return 4;
+            case "BCH": return 5;
+        }
+        return 0;
+    }
+    boolean checkIfReached(String currency, String amt){
+        float price = Float.parseFloat(amt);
+        switch(currency){
+            case "BTC":
+                if(koinexJSONTicker.prices.last_BTC < price && price <= koinexJSONTicker.prices.BTC
+                    || koinexJSONTicker.prices.last_BTC > price && price >= koinexJSONTicker.prices.BTC)
+                    return true;
+                break;
+            case "XRP":
+                if(koinexJSONTicker.prices.last_XRP < price && price <= koinexJSONTicker.prices.XRP
+                        || koinexJSONTicker.prices.last_XRP > price && price >= koinexJSONTicker.prices.XRP)
+                    return true;
+                break;
+            case "ETH":
+                if(koinexJSONTicker.prices.last_ETH < price && price <= koinexJSONTicker.prices.ETH
+                        || koinexJSONTicker.prices.last_ETH > price && price >= koinexJSONTicker.prices.ETH)
+                    return true;
+                break;
+            case "BCH":
+                if(koinexJSONTicker.prices.last_BCH < price && price <= koinexJSONTicker.prices.BCH
+                        || koinexJSONTicker.prices.last_BCH > price && price >= koinexJSONTicker.prices.BCH)
+                    return true;
+                break;
+            case "LTC":
+                if(koinexJSONTicker.prices.last_LTC < price && price <= koinexJSONTicker.prices.LTC
+                        || koinexJSONTicker.prices.last_LTC > price && price >= koinexJSONTicker.prices.LTC)
+                    return true;
+                break;
+        }
+        return false;
     }
     /*
 
@@ -200,11 +274,9 @@ public class alerts extends AppCompatActivity {
         } catch (ExecutionException e) {
             e.printStackTrace();
         }
-        Snackbar.make(findViewById(R.id.coordinatorLayout),
-                "Latest prices!", Snackbar.LENGTH_SHORT).show();
 
         koinexJSONTicker = decodeToParsable();
-        System.out.println("Reached here with " + koinexJSONTicker.prices.BTC);
+        //System.out.println("Reached here with " + koinexJSONTicker.prices.BTC);
         prices.put("Bitcoin", koinexJSONTicker.prices.BTC+"");
         prices.put("Ether", koinexJSONTicker.prices.ETH+"");
         prices.put("Ripple", koinexJSONTicker.prices.XRP+"");
@@ -227,6 +299,13 @@ public class alerts extends AppCompatActivity {
                     adapter.notifyDataSetChanged();
             }
         });
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        Snackbar.make(findViewById(R.id.coordinatorLayout),
+                "Latest prices!", Snackbar.LENGTH_SHORT).show();
     }
 
     @Override
@@ -272,9 +351,9 @@ public class alerts extends AppCompatActivity {
                     InputStream is = new URL(url[0]).openStream();
                     BufferedReader rd = new BufferedReader(new InputStreamReader(is, Charset.forName("UTF-8")));
                     this.myAlert.jsonText = readAll(rd);
-                    System.out.println("IN doInBackground: " + this.myAlert.jsonText);
+                    //System.out.println("IN doInBackground: " + this.myAlert.jsonText);
                     this.myAlert.callRefresh();
-                    Thread.sleep(15000);
+                    Thread.sleep(20000);
                 } catch (Exception e) {
                     Snackbar mySnackbar = Snackbar.make(findViewById(R.id.coordinatorLayout),
                             "Cannot retrieve latest prices, retrying...", Snackbar.LENGTH_SHORT);
@@ -282,8 +361,6 @@ public class alerts extends AppCompatActivity {
                 if(1==0) /* Silly workaround for never getting out of here; couldn't make return value void|Void for some reason */
                     return null;
             }
-
-
         }
 
         @Override

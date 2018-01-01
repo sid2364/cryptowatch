@@ -13,7 +13,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 public class SimpleDatabaseHelper {
     private SQLiteOpenHelper _openHelper;
     private static final int DATABASE_VERSION = 1;
-    private static final String DATABASE_NAME = "CryptoWatch";
+    private static final String DATABASE_NAME = "CryptoWatchSid";
     private static final String TABLE_NAME_ALERTS = "alerts";
     private static final String KEY_ID = "alert_id";
     private static final String KEY_USD = "check_usd";
@@ -47,16 +47,25 @@ public class SimpleDatabaseHelper {
 
     public void addAlert(String amt, String currency){
         SQLiteDatabase db = _openHelper.getWritableDatabase();
-        String sql = "insert into " + TABLE_NAME_ALERTS + " values('" + amt + "', '" + currency + "')";
+        String token;
+        switch(currency){
+            case "Bitcoin": token = "BTC"; break;
+            case "Ripple": token = "XRP"; break;
+            case "Ether": token = "ETH"; break;
+            case "Bitcoin Cash": token = "BCH"; break;
+            case "Litecoin": token = "LTC"; break;
+            default: token = "BTC";
+        }
+        String sql = "insert into " + TABLE_NAME_ALERTS + " values('" + token + "', '" + amt + "')";
         db.execSQL(sql);
         db.close();
     }
-    public void deleteAlarm(String amt){
+    public void deleteAlert(String amt, String token){
         SQLiteDatabase db = _openHelper.getWritableDatabase();
-        db.execSQL("delete from " + TABLE_NAME_ALERTS + " where "+KEY_AMOUNT+"='"+amt+"';");
+        db.execSQL("delete from " + TABLE_NAME_ALERTS + " where " + KEY_AMOUNT + "='" +amt + "' and " + KEY_CURRENCY+"='" + token + "';");
         db.close();
     }
-    public String[] getAllAlarms() {
+    public String[] getAllAlerts() {
         SQLiteDatabase db = _openHelper.getReadableDatabase();
         Cursor cursor = db.rawQuery("select distinct " + KEY_AMOUNT + ", " + KEY_CURRENCY + " from " + TABLE_NAME_ALERTS, null);
         if (cursor.getCount() == 0) return new String[0];
@@ -67,7 +76,7 @@ public class SimpleDatabaseHelper {
         cursor.moveToFirst();
         int i = 0;
         while (!cursor.isAfterLast()) {
-            alarms[i++] = cursor.getString(cursor.getColumnIndex(KEY_AMOUNT));
+            alarms[i++] = cursor.getString(cursor.getColumnIndex(KEY_CURRENCY)) + ":" + cursor.getString(cursor.getColumnIndex(KEY_AMOUNT));
             cursor.moveToNext();
         }
         db.close();

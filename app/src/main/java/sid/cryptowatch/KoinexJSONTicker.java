@@ -6,17 +6,28 @@ package sid.cryptowatch;
 
 class Prices{
     float BTC;
+    float last_BTC;
     float XRP;
+    float last_XRP;
     float ETH;
+    float last_ETH;
     float BCH;
+    float last_BCH;
     float LTC;
+    float last_LTC;
     Prices(){
         BTC = 0;
         XRP = 0;
         ETH = 0;
         BCH = 0;
         LTC = 0;
+        last_BCH = 0;
+        last_BTC = 0;
+        last_LTC = 0;
+        last_ETH = 0;
+        last_XRP = 0;
     }
+
 }
 class Crypto{
     float last_traded_price;
