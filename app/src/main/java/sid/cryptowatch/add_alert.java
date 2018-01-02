@@ -2,6 +2,7 @@ package sid.cryptowatch;
 
 import android.app.AlertDialog;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -29,19 +30,34 @@ public class add_alert extends AppCompatActivity implements View.OnClickListener
     Button add_alert_btn;
 
     @Override
+    public void onBackPressed(){
+        super.onBackPressed();
+        finish();
+    }
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_alert);
+        Intent intent = getIntent();
+        String coin = intent.getStringExtra("coin");
         dropdown = findViewById(R.id.spinnerCurrencies);
         price = findViewById(R.id.editTextPrice);
         add_alert_btn = findViewById(R.id.buttonAddAlert);
 
         add_alert_btn.setOnClickListener(add_alert.this);
 
-        String[] currencies = new String[]{"Bitcoin", "Ether", "Ripple", "Litecoin", "Bitcoin Cash"};
-        selected_currency = currencies[0];
+        String[] currencies = new String[]{"Ripple", "Bitcoin", "Ether", "Litecoin", "Bitcoin Cash"};
+        int index = 0;
+        for (int i=0;i<currencies.length;i++) {
+            if (currencies[i].equals(coin)) {
+                index = i;
+                break;
+            }
+        }
+        selected_currency = currencies[index];
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, currencies);
         dropdown.setAdapter(adapter);
+        dropdown.setSelection(index);
 
         dropdown.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override

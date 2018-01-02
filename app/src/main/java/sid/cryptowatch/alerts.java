@@ -1,9 +1,10 @@
 package sid.cryptowatch;
 
-import android.app.Activity;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
@@ -14,45 +15,32 @@ import android.support.v7.widget.Toolbar;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.Adapter;
-import android.widget.ArrayAdapter;
+import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.SimpleAdapter;
+import android.widget.TextView;
 import android.widget.Toast;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-
-import org.apache.commons.io.IOUtils;
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
-import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
-import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
-
 public class alerts extends AppCompatActivity {
 
-    ListView listViewActiveAlerts;
+    ListView listViewCurrentPrices;
     FloatingActionButton fabReload, fab, fabShowAlerts;
     HashMap<String, String> prices;
     List<HashMap<String, String>> listItems;
@@ -61,33 +49,67 @@ public class alerts extends AppCompatActivity {
     static KoinexJSONTicker koinexJSONTicker;
     SimpleDatabaseHelper db;
     String jsonText;
+    static int notifyCounter;
+    NotificationManager notificationManager;
+    NotificationCompat.Builder notificationBuilder;
+    RetrieveDataTask backgroundStuff;
 
+    @Override
+    public void onBackPressed(){
+        backgroundStuff.cancel(true);
+        super.onBackPressed();
+        finish();
+    }
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_alerts);
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-        listViewActiveAlerts = findViewById( R.id.listViewPrices);
+        getWindow().getDecorView().setBackgroundColor(Color.BLACK);
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        listViewCurrentPrices = findViewById( R.id.listViewPrices);
         koinexJSONTicker = new KoinexJSONTicker();
         setSupportActionBar(toolbar);
+        notifyCounter = 40;
 
-        RetrieveDataTask backgroundStuff = new RetrieveDataTask(this);
+        backgroundStuff = new RetrieveDataTask(this);
         backgroundStuff.execute("https://koinex.in/api/ticker");
-        //new RetrieveDataTask().execute("https://koinex.in/api/ticker");
+                //new RetrieveDataTask().execute("https://koinex.in/api/ticker");
 
         prices = new HashMap<>();
         listItems = new ArrayList<>();
         adapter = new SimpleAdapter(getApplicationContext(), listItems, R.layout.list_item,
                 new String[]{"Currency", "Price"},
                 new int[]{R.id.textHeader, R.id.textSub});
-        listViewActiveAlerts.setAdapter(adapter);
+        listViewCurrentPrices.setAdapter(adapter);
 
+        notificationBuilder = new NotificationCompat.Builder(this);
+        notificationBuilder.setSmallIcon(R.drawable.ic_launcher_foreground);
+        Intent notificationIntent = new Intent(this, alerts.class);
+        PendingIntent contentIntent = PendingIntent.getActivity(this, 0, notificationIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT);
+        notificationBuilder.setContentIntent(contentIntent);
+        notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        listViewCurrentPrices.setClickable(true);
+        listViewCurrentPrices.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position,
+                                    long id) {
+                Intent intent = new Intent(alerts.this, add_alert.class);
+                TextView textViewCoinPrices = (TextView) view.findViewById(R.id.textHeader);
+                String coin = textViewCoinPrices.getText().toString();
+                //String coin = ((TextView) view.findViewById(R.id.listViewPrices)).getText().toString();
+                //String coin = (String) parent.getAdapter().getItem(position);
+                intent.putExtra("coin", coin);
+                startActivity(intent);
+            }
+        });
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 Intent k = new Intent(getApplicationContext(), add_alert.class);
-                finish();
+                backgroundStuff.cancel(true);
+                //finish();
                 startActivity(k);
 
             }
@@ -96,6 +118,8 @@ public class alerts extends AppCompatActivity {
         fabReload.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                //backgroundStuff.cancel(true);
+                //backgroundStuff.execute("https://koinex.in/api/ticker");
                 callRefresh();
                 adapter.notifyDataSetChanged();
             }
@@ -106,7 +130,8 @@ public class alerts extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 Intent k = new Intent(getApplicationContext(), add_alert.class);
-                finish();
+                //finish();
+                backgroundStuff.cancel(true);
                 startActivity(k);
 
             }
@@ -115,7 +140,14 @@ public class alerts extends AppCompatActivity {
         db = new SimpleDatabaseHelper(getApplicationContext());
 
     }
+    @Override
+    public void onRestart(){
+        super.onRestart();
+    }
     public void callRefresh() {
+        Snackbar.make(findViewById(R.id.coordinatorLayout),
+                "Loading data, please wait!", Snackbar.LENGTH_SHORT).show();
+        notifyCounter += 1;
         try{
             refreshPriceList(prices, listItems, adapter);
         } catch (IOException e) {
@@ -133,13 +165,14 @@ public class alerts extends AppCompatActivity {
                     Toast.LENGTH_LONG);
             return;
         }
-        NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this);
-        notificationBuilder.setSmallIcon(R.drawable.ic_launcher_foreground);
-        notificationBuilder.setContentTitle("Latest Prices");
-        notificationBuilder.setContentText("Check the latest prices on cryptowatch!");
-        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+
         // notificationID allows you to update the notification later on.
-        notificationManager.notify(2364, notificationBuilder.build());
+        if(notifyCounter > 40) {
+            notificationBuilder.setContentTitle("Latest Prices");
+            notificationBuilder.setContentText("Check the latest prices on cryptowatch!");
+            notificationManager.notify(2364, notificationBuilder.build());
+            notifyCounter = 0;
+        }
     }
     public KoinexJSONTicker decodeToParsable() throws JSONException{
         JSONObject stats = jsonObject.getJSONObject("stats");
@@ -195,11 +228,8 @@ public class alerts extends AppCompatActivity {
         for(int i = 0; i < activeAlerts.length; i++){
             String parts[] = activeAlerts[i].split(":");
             if(checkIfReached(parts[0], parts[1])){
-                NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this);
-                notificationBuilder.setSmallIcon(R.drawable.ic_launcher_foreground);
                 notificationBuilder.setContentTitle("Update");
                 notificationBuilder.setContentText("Price of " + parts[0] + " has reached " + parts[1] +"!");
-                NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
                 // notificationID allows you to update the notification later on.
                 notificationManager.notify(getNumberForCurrency(parts[0]), notificationBuilder.build());
                 db.deleteAlert(parts[1], parts[0]);
@@ -263,8 +293,6 @@ public class alerts extends AppCompatActivity {
     }
 
     public void refreshPriceList(HashMap<String, String> prices, List<HashMap<String, String>>listItems, final SimpleAdapter adapter) throws IOException, JSONException {
-        Snackbar.make(findViewById(R.id.coordinatorLayout),
-                "Loading data, please wait!", Snackbar.LENGTH_SHORT).show();
         try{
             getData();
         }catch(IOException e){
@@ -332,6 +360,8 @@ public class alerts extends AppCompatActivity {
     }
     private class RetrieveDataTask extends AsyncTask<String, Void, String> { /* Params, Progress, Result */
         public alerts myAlert;
+        BufferedReader rd;
+
         public RetrieveDataTask(alerts alert){
             this.myAlert = alert;
         }
@@ -347,21 +377,34 @@ public class alerts extends AppCompatActivity {
 
         @Override
         protected String doInBackground(String... url) {
-            while(true) {
+            try {
+                Snackbar.make(findViewById(R.id.coordinatorLayout),
+                        "Retrieving latest prices", Snackbar.LENGTH_SHORT).show();
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            for(int i = 0 ; i < 500 ; i++) {
                 try {
                     InputStream is = new URL(url[0]).openStream();
-                    BufferedReader rd = new BufferedReader(new InputStreamReader(is, Charset.forName("UTF-8")));
+                    rd = new BufferedReader(new InputStreamReader(is, Charset.forName("UTF-8")));
                     this.myAlert.jsonText = readAll(rd);
                     //System.out.println("IN doInBackground: " + this.myAlert.jsonText);
                     this.myAlert.callRefresh();
-                    Thread.sleep(20000);
+                    Thread.sleep(35000);
                 } catch (Exception e) {
-                    Snackbar mySnackbar = Snackbar.make(findViewById(R.id.coordinatorLayout),
-                            "Cannot retrieve latest prices, retrying...", Snackbar.LENGTH_SHORT);
+                    Snackbar.make(findViewById(R.id.coordinatorLayout),
+                            "Cannot retrieve latest prices, retrying...", Snackbar.LENGTH_SHORT).show();
+                    try {
+                        Thread.sleep(2000);
+                    } catch (InterruptedException e1) {
+                        e1.printStackTrace();
+                    }
                 }
-                if(1==0) /* Silly workaround for never getting out of here; couldn't make return value void|Void for some reason */
-                    return null;
             }
+            //if(1==0) /* Silly workaround for never getting out of here; couldn't make return value void|Void for some reason */
+            //    return null;
+            return null; // dummy; does nothing (AFAIK!)
         }
 
         @Override
