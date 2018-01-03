@@ -53,6 +53,7 @@ public class alerts extends AppCompatActivity {
     NotificationManager notificationManager;
     NotificationCompat.Builder notificationBuilder;
     RetrieveDataTask backgroundStuff;
+    public static boolean IsClosingActivities = false;
 
     @Override
     public void onBackPressed(){
@@ -61,30 +62,44 @@ public class alerts extends AppCompatActivity {
         finish();
     }
     @Override
+    protected void onResume() {
+        super.onResume();
+        if (alerts.IsClosingActivities) {
+            this.finish();
+        }
+    }
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_alerts);
         getWindow().getDecorView().setBackgroundColor(Color.BLACK);
         Toolbar toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
         listViewCurrentPrices = findViewById( R.id.listViewPrices);
         koinexJSONTicker = new KoinexJSONTicker();
-        setSupportActionBar(toolbar);
+        db = new SimpleDatabaseHelper(getApplicationContext());
+        backgroundStuff = new RetrieveDataTask(this);
         notifyCounter = 40;
 
-        backgroundStuff = new RetrieveDataTask(this);
-        backgroundStuff.execute("https://koinex.in/api/ticker");
-                //new RetrieveDataTask().execute("https://koinex.in/api/ticker");
+        notificationBuilder = new NotificationCompat.Builder(this);
+        Intent notificationIntent = new Intent(this, alerts.class);
 
         prices = new HashMap<>();
         listItems = new ArrayList<>();
         adapter = new SimpleAdapter(getApplicationContext(), listItems, R.layout.list_item,
                 new String[]{"Currency", "Price"},
                 new int[]{R.id.textHeader, R.id.textSub});
+
+        getPricesFromLastOpen();
+
+
+        backgroundStuff.execute("https://koinex.in/api/ticker");
+                //new RetrieveDataTask().execute("https://koinex.in/api/ticker");
+
+
         listViewCurrentPrices.setAdapter(adapter);
 
-        notificationBuilder = new NotificationCompat.Builder(this);
         notificationBuilder.setSmallIcon(R.drawable.ic_launcher_foreground);
-        Intent notificationIntent = new Intent(this, alerts.class);
         PendingIntent contentIntent = PendingIntent.getActivity(this, 0, notificationIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT);
         notificationBuilder.setContentIntent(contentIntent);
@@ -103,7 +118,7 @@ public class alerts extends AppCompatActivity {
                 startActivity(intent);
             }
         });
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+        FloatingActionButton fab = findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -114,7 +129,7 @@ public class alerts extends AppCompatActivity {
 
             }
         });
-        fabReload = (FloatingActionButton) findViewById(R.id.fabReload);
+        fabReload = findViewById(R.id.fabReload);
         fabReload.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -125,7 +140,7 @@ public class alerts extends AppCompatActivity {
             }
         });
 
-        fabShowAlerts = (FloatingActionButton) findViewById(R.id.fabShowAlerts);
+        fabShowAlerts = findViewById(R.id.fabShowAlerts);
         fabShowAlerts.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -137,19 +152,39 @@ public class alerts extends AppCompatActivity {
             }
         });
 
-        db = new SimpleDatabaseHelper(getApplicationContext());
-
     }
+
+    /*
+    This is really bad programming, I'm already too far into it to change it
+    Note to self: always allow for scaling application up and not limiting ANYTHING to
+    what your present idea of implementation is. THINK OUT OF THE BOX!
+     */
+    public void getPricesFromLastOpen(){
+        koinexJSONTicker.prices.BTC = db.getCurrent("BTC");
+        koinexJSONTicker.prices.XRP = db.getCurrent("XRP");
+        koinexJSONTicker.prices.LTC = db.getCurrent("LTC");
+        koinexJSONTicker.prices.BCH = db.getCurrent("BCH");
+        koinexJSONTicker.prices.ETH = db.getCurrent("ETH");
+    }
+    public void updateCurrentPrices(){
+        db.updateCurrent(koinexJSONTicker.prices.ETH+"", "ETH");
+        db.updateCurrent(koinexJSONTicker.prices.BTC+"", "BTC");
+        db.updateCurrent(koinexJSONTicker.prices.XRP+"", "XRP");
+        db.updateCurrent(koinexJSONTicker.prices.BCH+"", "BCH");
+        db.updateCurrent(koinexJSONTicker.prices.LTC+"", "LTC");
+    }
+
     @Override
     public void onRestart(){
         super.onRestart();
     }
-    public void callRefresh() {
+    public synchronized void callRefresh() {
         Snackbar.make(findViewById(R.id.coordinatorLayout),
                 "Loading data, please wait!", Snackbar.LENGTH_SHORT).show();
         notifyCounter += 1;
         try{
             refreshPriceList(prices, listItems, adapter);
+            updateCurrentPrices();
         } catch (IOException e) {
             Toast.makeText(this.getApplicationContext(), "There might be a problem with your connection.",
                     Toast.LENGTH_LONG).show();
@@ -379,8 +414,8 @@ public class alerts extends AppCompatActivity {
         protected String doInBackground(String... url) {
             try {
                 Snackbar.make(findViewById(R.id.coordinatorLayout),
-                        "Retrieving latest prices", Snackbar.LENGTH_SHORT).show();
-                Thread.sleep(500);
+                        "Retrieving latest prices...", Snackbar.LENGTH_SHORT).show();
+                Thread.sleep(1000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -391,7 +426,7 @@ public class alerts extends AppCompatActivity {
                     this.myAlert.jsonText = readAll(rd);
                     //System.out.println("IN doInBackground: " + this.myAlert.jsonText);
                     this.myAlert.callRefresh();
-                    Thread.sleep(35000);
+                    Thread.sleep(50000);
                 } catch (Exception e) {
                     Snackbar.make(findViewById(R.id.coordinatorLayout),
                             "Cannot retrieve latest prices, retrying...", Snackbar.LENGTH_SHORT).show();
