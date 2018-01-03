@@ -1,10 +1,13 @@
 package sid.cryptowatch;
 
+import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
@@ -103,6 +106,10 @@ public class alerts extends AppCompatActivity {
         PendingIntent contentIntent = PendingIntent.getActivity(this, 0, notificationIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT);
         notificationBuilder.setContentIntent(contentIntent);
+        notificationBuilder.setDefaults(Notification.DEFAULT_SOUND);
+        Uri uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+        notificationBuilder.setSound(uri);
+        notificationBuilder.setDefaults(Notification.DEFAULT_VIBRATE);
         notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         listViewCurrentPrices.setClickable(true);
         listViewCurrentPrices.setOnItemClickListener(new AdapterView.OnItemClickListener() {
@@ -202,7 +209,7 @@ public class alerts extends AppCompatActivity {
         }
 
         // notificationID allows you to update the notification later on.
-        if(notifyCounter > 40) {
+        if(notifyCounter > 60) {
             notificationBuilder.setContentTitle("Latest Prices");
             notificationBuilder.setContentText("Check the latest prices on cryptowatch!");
             notificationManager.notify(2364, notificationBuilder.build());
