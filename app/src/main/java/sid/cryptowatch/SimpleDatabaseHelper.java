@@ -61,7 +61,7 @@ public class SimpleDatabaseHelper {
         Float lp;
         String lp_;
         SQLiteDatabase db = _openHelper.getWritableDatabase();
-        Cursor cursor = db.rawQuery(String.format("select distinct %s, %s from %s", KEY_LAST_PRICE, KEY_CURRENCY, TABLE_NAME_PRICES), null);
+        Cursor cursor = db.rawQuery(String.format("select distinct %s, %s from %s where %s='%s'", KEY_LAST_PRICE, KEY_CURRENCY, TABLE_NAME_PRICES, KEY_CURRENCY, coin), null);
         if (cursor.getCount() == 0) {
             updateCurrent("0", coin);
             return 0;
