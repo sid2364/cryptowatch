@@ -19,6 +19,7 @@ import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.AdapterView;
+import android.widget.CheckBox;
 import android.widget.ListView;
 import android.widget.SimpleAdapter;
 import android.widget.TextView;
@@ -61,6 +62,7 @@ public class alerts extends AppCompatActivity {
     public static boolean IsClosingActivities = false;
     int numberOfPricesForStablity = 10;
     double permissibleStandardDeviationPercentage = 0.008; /* arbitrary selection */
+    HashMap<String, Boolean> notifyIfStableHM;
 
     @Override
     public void onBackPressed(){
@@ -89,6 +91,7 @@ public class alerts extends AppCompatActivity {
         //last_n_prices = new ArrayList<>();
         last_n_prices_per_curr = new HashMap<>();
         notifyCounter = 40;
+        notifyIfStableHM = new HashMap<>();
 
         notificationBuilder = new NotificationCompat.Builder(this);
         Intent notificationIntent = new Intent(this, alerts.class);
@@ -121,6 +124,13 @@ public class alerts extends AppCompatActivity {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position,
                                     long id) {
+
+            }
+        });
+        listViewCurrentPrices.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+            @Override
+            public boolean onItemLongClick(AdapterView<?> arg0, View view,
+                                           int pos, long id) {
                 Intent intent = new Intent(alerts.this, add_alert.class);
                 TextView textViewCoinPrices = (TextView) view.findViewById(R.id.textHeader);
                 String coin = textViewCoinPrices.getText().toString();
@@ -128,6 +138,23 @@ public class alerts extends AppCompatActivity {
                 //String coin = (String) parent.getAdapter().getItem(position);
                 intent.putExtra("coin", coin);
                 startActivity(intent);
+                return true;
+            }
+        });
+        listViewCurrentPrices.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                String display;
+                CheckBox cb = view.findViewById(R.id.checkBoxCheckIfStable);
+                TextView tv = view.findViewById(R.id.textHeader);
+                cb.setChecked(!cb.isChecked());
+                if(cb.isChecked()){
+                    display = "Will notify you when "+tv.getText().toString()+" stabilises!";
+                }else{
+                    display = "Canceled notification for when "+tv.getText().toString()+" stabilises!";
+                }
+                notifyIfStableHM.put(nameToToken(tv.getText().toString()), cb.isChecked());
+                Snackbar.make(findViewById(R.id.coordinatorLayout), display, Snackbar.LENGTH_LONG).show();
             }
         });
         FloatingActionButton fab = findViewById(R.id.fab);
@@ -164,6 +191,16 @@ public class alerts extends AppCompatActivity {
             }
         });
 
+    }
+    public String nameToToken(String coin){
+        switch (coin){
+            case "Bitcoin": return "BTC";
+            case "Ether": return "ETH";
+            case "Ripple": return "XRP";
+            case "Litecoin": return "LTC";
+            case "Bitcoin Cash": return "BCH";
+            default: return "XRP";
+        }
     }
     public int addToListOfPrices(String coin, Float amt){
         /*TODO
@@ -426,15 +463,15 @@ public class alerts extends AppCompatActivity {
                 "Latest prices!", Snackbar.LENGTH_SHORT).show();
 
         notificationBuilder.setContentTitle("Currency Stable");
-        if(koinexJSONTicker.prices.BTC != koinexJSONTicker.prices.last_BTC)
+        if(koinexJSONTicker.prices.BTC != koinexJSONTicker.prices.last_BTC && notifyIfStableHM.get("BTC"))
             notifyIfStable("BTC", koinexJSONTicker.prices.BTC);
-        if(koinexJSONTicker.prices.ETH != koinexJSONTicker.prices.last_ETH)
+        if(koinexJSONTicker.prices.ETH != koinexJSONTicker.prices.last_ETH && notifyIfStableHM.get("ETH"))
             notifyIfStable("ETH", koinexJSONTicker.prices.ETH);
-        if(koinexJSONTicker.prices.XRP != koinexJSONTicker.prices.last_XRP)
+        if(koinexJSONTicker.prices.XRP != koinexJSONTicker.prices.last_XRP && notifyIfStableHM.get("XRp"))
             notifyIfStable("XRP", koinexJSONTicker.prices.XRP);
-        if(koinexJSONTicker.prices.BCH != koinexJSONTicker.prices.last_BCH)
+        if(koinexJSONTicker.prices.BCH != koinexJSONTicker.prices.last_BCH && notifyIfStableHM.get("BCH"))
             notifyIfStable("BCH", koinexJSONTicker.prices.BCH);
-        if(koinexJSONTicker.prices.LTC != koinexJSONTicker.prices.last_LTC)
+        if(koinexJSONTicker.prices.LTC != koinexJSONTicker.prices.last_LTC && notifyIfStableHM.get("LTC"))
             notifyIfStable("LTC", koinexJSONTicker.prices.LTC);
 
     }
