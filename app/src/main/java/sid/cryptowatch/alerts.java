@@ -131,19 +131,6 @@ public class alerts extends AppCompatActivity {
             @Override
             public boolean onItemLongClick(AdapterView<?> arg0, View view,
                                            int pos, long id) {
-                Intent intent = new Intent(alerts.this, add_alert.class);
-                TextView textViewCoinPrices = (TextView) view.findViewById(R.id.textHeader);
-                String coin = textViewCoinPrices.getText().toString();
-                //String coin = ((TextView) view.findViewById(R.id.listViewPrices)).getText().toString();
-                //String coin = (String) parent.getAdapter().getItem(position);
-                intent.putExtra("coin", coin);
-                startActivity(intent);
-                return true;
-            }
-        });
-        listViewCurrentPrices.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 String display;
                 CheckBox cb = view.findViewById(R.id.checkBoxCheckIfStable);
                 TextView tv = view.findViewById(R.id.textHeader);
@@ -155,6 +142,19 @@ public class alerts extends AppCompatActivity {
                 }
                 notifyIfStableHM.put(nameToToken(tv.getText().toString()), cb.isChecked());
                 Snackbar.make(findViewById(R.id.coordinatorLayout), display, Snackbar.LENGTH_LONG).show();
+                return true;
+            }
+        });
+        listViewCurrentPrices.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                Intent intent = new Intent(alerts.this, add_alert.class);
+                TextView textViewCoinPrices = (TextView) view.findViewById(R.id.textHeader);
+                String coin = textViewCoinPrices.getText().toString();
+                //String coin = ((TextView) view.findViewById(R.id.listViewPrices)).getText().toString();
+                //String coin = (String) parent.getAdapter().getItem(position);
+                intent.putExtra("coin", coin);
+                startActivity(intent);
             }
         });
         FloatingActionButton fab = findViewById(R.id.fab);
@@ -223,9 +223,10 @@ public class alerts extends AppCompatActivity {
     public double square(double num){
         return num*num;
     }
-    public double isStable(String coin, Float amt){
+    public double isStable(String coin){
         double standardDev = 0, average = 0;
-        if(addToListOfPrices(coin, amt) == 1)
+
+        if(last_n_prices_per_curr.size() < numberOfPricesForStablity)
             return 0;
 
         for(float number: last_n_prices_per_curr.get(coin)){
@@ -242,6 +243,17 @@ public class alerts extends AppCompatActivity {
         if(standardDev > permissibleStandardDeviationPercentage*average)
             return 0;
         return average;
+
+    }
+
+    public void notifyIfStable(String coin, float amt){
+        if(addToListOfPrices(coin, amt) == 1)
+            return;
+        double averageIfStable = isStable(coin);
+        if(averageIfStable != 0){
+            notificationBuilder.setContentText("Price of "+coin+" has stabilised around "+averageIfStable+"!");
+            notificationManager.notify(getNumberForCurrency(coin)*10, notificationBuilder.build());
+        }
 
     }
 
@@ -465,23 +477,28 @@ public class alerts extends AppCompatActivity {
         notificationBuilder.setContentTitle("Currency Stable");
         if(koinexJSONTicker.prices.BTC != koinexJSONTicker.prices.last_BTC && notifyIfStableHM.get("BTC"))
             notifyIfStable("BTC", koinexJSONTicker.prices.BTC);
+        else if(isStable("BTC")==0)
+            notificationManager.cancel(getNumberForCurrency("BTC")*10);
+
         if(koinexJSONTicker.prices.ETH != koinexJSONTicker.prices.last_ETH && notifyIfStableHM.get("ETH"))
             notifyIfStable("ETH", koinexJSONTicker.prices.ETH);
-        if(koinexJSONTicker.prices.XRP != koinexJSONTicker.prices.last_XRP && notifyIfStableHM.get("XRp"))
+        else if(isStable("ETH")==0)
+            notificationManager.cancel(getNumberForCurrency("ETH")*10);
+
+        if(koinexJSONTicker.prices.XRP != koinexJSONTicker.prices.last_XRP && notifyIfStableHM.get("XRP"))
             notifyIfStable("XRP", koinexJSONTicker.prices.XRP);
+        else if(isStable("XRP")==0)
+            notificationManager.cancel(getNumberForCurrency("XRP")*10);
+
         if(koinexJSONTicker.prices.BCH != koinexJSONTicker.prices.last_BCH && notifyIfStableHM.get("BCH"))
             notifyIfStable("BCH", koinexJSONTicker.prices.BCH);
+        else if(isStable("BCH")==0)
+            notificationManager.cancel(getNumberForCurrency("BCH")*10);
+
         if(koinexJSONTicker.prices.LTC != koinexJSONTicker.prices.last_LTC && notifyIfStableHM.get("LTC"))
             notifyIfStable("LTC", koinexJSONTicker.prices.LTC);
-
-    }
-
-    public void notifyIfStable(String coin, float amt){
-        double averageIfStable = isStable(coin, amt);
-        if(averageIfStable != 0){
-            notificationBuilder.setContentText("Price of "+coin+" has stabilised around "+averageIfStable+"!");
-            notificationManager.notify(getNumberForCurrency(coin)*10, notificationBuilder.build());
-        }
+        else if(isStable("LTC")==0)
+            notificationManager.cancel(getNumberForCurrency("LTC")*10);
 
     }
 
