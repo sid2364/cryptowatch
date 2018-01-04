@@ -56,7 +56,11 @@ public class alerts extends AppCompatActivity {
     NotificationManager notificationManager;
     NotificationCompat.Builder notificationBuilder;
     RetrieveDataTask backgroundStuff;
+    HashMap<String, ArrayList<Float>> last_n_prices_per_curr;
+    //ArrayList<Integer> last_n_prices;
     public static boolean IsClosingActivities = false;
+    int numberOfPricesForStablity = 10;
+    double permissibleStandardDeviationPercentage = 0.008; /* arbitrary selection */
 
     @Override
     public void onBackPressed(){
@@ -82,6 +86,8 @@ public class alerts extends AppCompatActivity {
         koinexJSONTicker = new KoinexJSONTicker();
         db = new SimpleDatabaseHelper(getApplicationContext());
         backgroundStuff = new RetrieveDataTask(this);
+        //last_n_prices = new ArrayList<>();
+        last_n_prices_per_curr = new HashMap<>();
         notifyCounter = 40;
 
         notificationBuilder = new NotificationCompat.Builder(this);
@@ -95,10 +101,8 @@ public class alerts extends AppCompatActivity {
 
         getPricesFromLastOpen();
 
-
         backgroundStuff.execute("https://koinex.in/api/ticker");
                 //new RetrieveDataTask().execute("https://koinex.in/api/ticker");
-
 
         listViewCurrentPrices.setAdapter(adapter);
 
@@ -107,6 +111,7 @@ public class alerts extends AppCompatActivity {
                 PendingIntent.FLAG_UPDATE_CURRENT);
         notificationBuilder.setContentIntent(contentIntent);
         notificationBuilder.setDefaults(Notification.DEFAULT_SOUND);
+        notificationBuilder.setAutoCancel(true);
         Uri uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
         notificationBuilder.setSound(uri);
         notificationBuilder.setDefaults(Notification.DEFAULT_VIBRATE);
@@ -160,9 +165,51 @@ public class alerts extends AppCompatActivity {
         });
 
     }
+    public int addToListOfPrices(String coin, Float amt){
+        /*TODO
+            Add last 10 prices of currency to HashMap; only add if new price is different from the last one
+            If list is 10 numbers long, then calculate standard deviation
+            If standard deviation is more than 0.5% (0.005) of mean, then mark as "Stable"
+         */
+        if(last_n_prices_per_curr.get(coin) == null){
+            last_n_prices_per_curr.put(coin, new ArrayList<Float>());
+            last_n_prices_per_curr.get(coin).add(amt);
+            return 1;
+        }
+
+        if (last_n_prices_per_curr.size() > numberOfPricesForStablity){
+            last_n_prices_per_curr.get(coin).remove(numberOfPricesForStablity);
+        }
+        last_n_prices_per_curr.get(coin).add(amt);
+        return 0;
+    }
+    public double square(double num){
+        return num*num;
+    }
+    public double isStable(String coin, Float amt){
+        double standardDev = 0, average = 0;
+        if(addToListOfPrices(coin, amt) == 1)
+            return 0;
+
+        for(float number: last_n_prices_per_curr.get(coin)){
+            average += number;
+        }
+        average /= last_n_prices_per_curr.get(coin).size();
+
+        if(last_n_prices_per_curr.size() == 10){
+            for (float number: last_n_prices_per_curr.get(coin)){
+                standardDev += square(number - average) / last_n_prices_per_curr.get(coin).size();
+            }
+            standardDev = Math.sqrt(standardDev);
+        }
+        if(standardDev > permissibleStandardDeviationPercentage*average)
+            return 0;
+        return average;
+
+    }
 
     /*
-    This is really bad programming, I'm already too far into it to change it
+    This is REALLY bad programming; I'm already too far into it to change it now!
     Note to self: always allow for scaling application up and not limiting ANYTHING to
     what your present idea of implementation is. THINK OUT OF THE BOX!
      */
@@ -377,6 +424,28 @@ public class alerts extends AppCompatActivity {
         }
         Snackbar.make(findViewById(R.id.coordinatorLayout),
                 "Latest prices!", Snackbar.LENGTH_SHORT).show();
+
+        notificationBuilder.setContentTitle("Currency Stable");
+        if(koinexJSONTicker.prices.BTC != koinexJSONTicker.prices.last_BTC)
+            notifyIfStable("BTC", koinexJSONTicker.prices.BTC);
+        if(koinexJSONTicker.prices.ETH != koinexJSONTicker.prices.last_ETH)
+            notifyIfStable("ETH", koinexJSONTicker.prices.ETH);
+        if(koinexJSONTicker.prices.XRP != koinexJSONTicker.prices.last_XRP)
+            notifyIfStable("XRP", koinexJSONTicker.prices.XRP);
+        if(koinexJSONTicker.prices.BCH != koinexJSONTicker.prices.last_BCH)
+            notifyIfStable("BCH", koinexJSONTicker.prices.BCH);
+        if(koinexJSONTicker.prices.LTC != koinexJSONTicker.prices.last_LTC)
+            notifyIfStable("LTC", koinexJSONTicker.prices.LTC);
+
+    }
+
+    public void notifyIfStable(String coin, float amt){
+        double averageIfStable = isStable(coin, amt);
+        if(averageIfStable != 0){
+            notificationBuilder.setContentText("Price of "+coin+" has stabilised around "+averageIfStable+"!");
+            notificationManager.notify(getNumberForCurrency(coin)*10, notificationBuilder.build());
+        }
+
     }
 
     @Override
