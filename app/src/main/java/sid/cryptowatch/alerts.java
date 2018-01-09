@@ -60,7 +60,7 @@ public class alerts extends AppCompatActivity {
     HashMap<String, ArrayList<Float>> last_n_prices_per_curr;
     //ArrayList<Integer> last_n_prices;
     public static boolean IsClosingActivities = false;
-    int numberOfPricesForStablity = 10;
+    int numberOfPricesForStability = 6;
     double permissibleStandardDeviationPercentage = 0.008; /* arbitrary selection */
     HashMap<String, Boolean> notifyIfStableHM;
 
@@ -113,10 +113,11 @@ public class alerts extends AppCompatActivity {
         PendingIntent contentIntent = PendingIntent.getActivity(this, 0, notificationIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT);
         notificationBuilder.setContentIntent(contentIntent);
-        notificationBuilder.setDefaults(Notification.DEFAULT_SOUND);
         notificationBuilder.setAutoCancel(true);
         Uri uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
         notificationBuilder.setSound(uri);
+        notificationBuilder.setOnlyAlertOnce(true);
+        notificationBuilder.setDefaults(Notification.DEFAULT_SOUND);
         notificationBuilder.setDefaults(Notification.DEFAULT_VIBRATE);
         notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         listViewCurrentPrices.setClickable(true);
@@ -139,6 +140,7 @@ public class alerts extends AppCompatActivity {
                     display = "Will notify you when "+tv.getText().toString()+" stabilises!";
                 }else{
                     display = "Canceled notification for when "+tv.getText().toString()+" stabilises!";
+                    notificationManager.cancel(getNumberForCurrency(nameToToken(tv.getText().toString()))*10);
                 }
                 notifyIfStableHM.put(nameToToken(tv.getText().toString()), cb.isChecked());
                 Snackbar.make(findViewById(R.id.coordinatorLayout), display, Snackbar.LENGTH_LONG).show();
@@ -214,8 +216,8 @@ public class alerts extends AppCompatActivity {
             return 1;
         }
 
-        if (last_n_prices_per_curr.size() > numberOfPricesForStablity){
-            last_n_prices_per_curr.get(coin).remove(numberOfPricesForStablity);
+        if (last_n_prices_per_curr.get(coin).size() > numberOfPricesForStability){
+            last_n_prices_per_curr.get(coin).remove(0);
         }
         last_n_prices_per_curr.get(coin).add(amt);
         return 0;
@@ -226,7 +228,7 @@ public class alerts extends AppCompatActivity {
     public double isStable(String coin){
         double standardDev = 0, average = 0;
 
-        if(last_n_prices_per_curr.size() < numberOfPricesForStablity)
+        if(last_n_prices_per_curr.get(coin) == null || last_n_prices_per_curr.get(coin).size() < numberOfPricesForStability)
             return 0;
 
         for(float number: last_n_prices_per_curr.get(coin)){
@@ -234,15 +236,15 @@ public class alerts extends AppCompatActivity {
         }
         average /= last_n_prices_per_curr.get(coin).size();
 
-        if(last_n_prices_per_curr.size() == 10){
-            for (float number: last_n_prices_per_curr.get(coin)){
-                standardDev += square(number - average) / last_n_prices_per_curr.get(coin).size();
-            }
-            standardDev = Math.sqrt(standardDev);
+        for (float number: last_n_prices_per_curr.get(coin)){
+            standardDev += square(number - average) / last_n_prices_per_curr.get(coin).size();
         }
-        if(standardDev > permissibleStandardDeviationPercentage*average)
-            return 0;
-        return average;
+        standardDev = Math.sqrt(standardDev);
+
+        if(standardDev < permissibleStandardDeviationPercentage*average && standardDev != 0) {
+            return average;
+        }
+        return 0;
 
     }
 
@@ -253,6 +255,8 @@ public class alerts extends AppCompatActivity {
         if(averageIfStable != 0){
             notificationBuilder.setContentText("Price of "+coin+" has stabilised around "+averageIfStable+"!");
             notificationManager.notify(getNumberForCurrency(coin)*10, notificationBuilder.build());
+        } else {
+            notificationManager.cancel(getNumberForCurrency(coin)*10);
         }
 
     }
@@ -268,6 +272,11 @@ public class alerts extends AppCompatActivity {
         koinexJSONTicker.prices.LTC = db.getCurrent("LTC");
         koinexJSONTicker.prices.BCH = db.getCurrent("BCH");
         koinexJSONTicker.prices.ETH = db.getCurrent("ETH");
+        addToListOfPrices("BTC", koinexJSONTicker.prices.BTC);
+        addToListOfPrices("ETH", koinexJSONTicker.prices.ETH);
+        addToListOfPrices("XRP", koinexJSONTicker.prices.XRP);
+        addToListOfPrices("BCH", koinexJSONTicker.prices.BCH);
+        addToListOfPrices("LTC", koinexJSONTicker.prices.LTC);
     }
     public void updateCurrentPrices(){
         db.updateCurrent(koinexJSONTicker.prices.ETH+"", "ETH");
@@ -281,6 +290,7 @@ public class alerts extends AppCompatActivity {
     public void onRestart(){
         super.onRestart();
     }
+
     public synchronized void callRefresh() {
         Snackbar.make(findViewById(R.id.coordinatorLayout),
                 "Loading data, please wait!", Snackbar.LENGTH_SHORT).show();
@@ -331,6 +341,7 @@ public class alerts extends AppCompatActivity {
         koinexJSONTicker.prices.BCH = Float.parseFloat(prices.getString("BCH"));
         koinexJSONTicker.prices.last_LTC = koinexJSONTicker.prices.LTC;
         koinexJSONTicker.prices.LTC = Float.parseFloat(prices.getString("LTC"));
+        /*
         koinexJSONTicker.stats.BCH.last_traded_price = Float.parseFloat(currencyStatsBCH.getString("last_traded_price"));
         koinexJSONTicker.stats.BTC.last_traded_price = Float.parseFloat(currencyStatsBTC.getString("last_traded_price"));
         koinexJSONTicker.stats.ETH.last_traded_price = Float.parseFloat(currencyStatsETH.getString("last_traded_price"));
@@ -361,6 +372,7 @@ public class alerts extends AppCompatActivity {
         koinexJSONTicker.stats.ETH.vol_24hrs = Float.parseFloat(currencyStatsETH.getString("vol_24hrs"));
         koinexJSONTicker.stats.XRP.vol_24hrs = Float.parseFloat(currencyStatsXRP.getString("vol_24hrs"));
         koinexJSONTicker.stats.LTC.vol_24hrs = Float.parseFloat(currencyStatsLTC.getString("vol_24hrs"));
+        */
         // check for alerts and send notification
         String activeAlerts[] = db.getAllAlerts();
         for(int i = 0; i < activeAlerts.length; i++){
@@ -370,7 +382,7 @@ public class alerts extends AppCompatActivity {
                 notificationBuilder.setContentText("Price of " + parts[0] + " has reached " + parts[1] +"!");
                 // notificationID allows you to update the notification later on.
                 notificationManager.notify(getNumberForCurrency(parts[0]), notificationBuilder.build());
-                db.deleteAlert(parts[1], parts[0]);
+                //db.deleteAlert(parts[1], parts[0]);
             }
         }
         return koinexJSONTicker;
@@ -475,30 +487,21 @@ public class alerts extends AppCompatActivity {
                 "Latest prices!", Snackbar.LENGTH_SHORT).show();
 
         notificationBuilder.setContentTitle("Currency Stable");
+
         if(koinexJSONTicker.prices.BTC != koinexJSONTicker.prices.last_BTC && notifyIfStableHM.get("BTC"))
             notifyIfStable("BTC", koinexJSONTicker.prices.BTC);
-        else if(isStable("BTC")==0)
-            notificationManager.cancel(getNumberForCurrency("BTC")*10);
 
         if(koinexJSONTicker.prices.ETH != koinexJSONTicker.prices.last_ETH && notifyIfStableHM.get("ETH"))
             notifyIfStable("ETH", koinexJSONTicker.prices.ETH);
-        else if(isStable("ETH")==0)
-            notificationManager.cancel(getNumberForCurrency("ETH")*10);
 
         if(koinexJSONTicker.prices.XRP != koinexJSONTicker.prices.last_XRP && notifyIfStableHM.get("XRP"))
             notifyIfStable("XRP", koinexJSONTicker.prices.XRP);
-        else if(isStable("XRP")==0)
-            notificationManager.cancel(getNumberForCurrency("XRP")*10);
 
         if(koinexJSONTicker.prices.BCH != koinexJSONTicker.prices.last_BCH && notifyIfStableHM.get("BCH"))
             notifyIfStable("BCH", koinexJSONTicker.prices.BCH);
-        else if(isStable("BCH")==0)
-            notificationManager.cancel(getNumberForCurrency("BCH")*10);
 
         if(koinexJSONTicker.prices.LTC != koinexJSONTicker.prices.last_LTC && notifyIfStableHM.get("LTC"))
             notifyIfStable("LTC", koinexJSONTicker.prices.LTC);
-        else if(isStable("LTC")==0)
-            notificationManager.cancel(getNumberForCurrency("LTC")*10);
 
     }
 
@@ -556,7 +559,7 @@ public class alerts extends AppCompatActivity {
                     this.myAlert.jsonText = readAll(rd);
                     //System.out.println("IN doInBackground: " + this.myAlert.jsonText);
                     this.myAlert.callRefresh();
-                    Thread.sleep(50000);
+                    Thread.sleep(60000);
                 } catch (Exception e) {
                     Snackbar.make(findViewById(R.id.coordinatorLayout),
                             "Cannot retrieve latest prices, retrying...", Snackbar.LENGTH_SHORT).show();
