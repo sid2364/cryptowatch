@@ -8,4 +8,12 @@
     tools:context="sid.cryptowatch.ActiveAlerts"
     tools:showIn="@layout/activity_active_alerts">
 
+    <ListView
+        android:id="@+id/listViewActiveAlerts"
+        android:layout_width="371dp"
+        android:layout_height="489dp"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="16dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 </android.support.constraint.ConstraintLayout>

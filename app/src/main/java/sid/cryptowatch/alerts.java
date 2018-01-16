@@ -61,7 +61,7 @@ public class alerts extends AppCompatActivity {
     //ArrayList<Integer> last_n_prices;
     public static boolean IsClosingActivities = false;
     int numberOfPricesForStability = 6;
-    double permissibleStandardDeviationPercentage = 0.008; /* arbitrary selection */
+    double permissibleStandardDeviationPercentage = 0.009; /* arbitrary selection */
     HashMap<String, Boolean> notifyIfStableHM;
 
     @Override
@@ -132,6 +132,19 @@ public class alerts extends AppCompatActivity {
             @Override
             public boolean onItemLongClick(AdapterView<?> arg0, View view,
                                            int pos, long id) {
+                Intent intent = new Intent(alerts.this, add_alert.class);
+                TextView textViewCoinPrices = (TextView) view.findViewById(R.id.textHeader);
+                String coin = textViewCoinPrices.getText().toString();
+                //String coin = ((TextView) view.findViewById(R.id.listViewPrices)).getText().toString();
+                //String coin = (String) parent.getAdapter().getItem(position);
+                intent.putExtra("coin", coin);
+                startActivity(intent);
+                return true;
+            }
+        });
+        listViewCurrentPrices.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 String display;
                 CheckBox cb = view.findViewById(R.id.checkBoxCheckIfStable);
                 TextView tv = view.findViewById(R.id.textHeader);
@@ -144,19 +157,7 @@ public class alerts extends AppCompatActivity {
                 }
                 notifyIfStableHM.put(nameToToken(tv.getText().toString()), cb.isChecked());
                 Snackbar.make(findViewById(R.id.coordinatorLayout), display, Snackbar.LENGTH_LONG).show();
-                return true;
-            }
-        });
-        listViewCurrentPrices.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                Intent intent = new Intent(alerts.this, add_alert.class);
-                TextView textViewCoinPrices = (TextView) view.findViewById(R.id.textHeader);
-                String coin = textViewCoinPrices.getText().toString();
-                //String coin = ((TextView) view.findViewById(R.id.listViewPrices)).getText().toString();
-                //String coin = (String) parent.getAdapter().getItem(position);
-                intent.putExtra("coin", coin);
-                startActivity(intent);
+                //return true;
             }
         });
         FloatingActionButton fab = findViewById(R.id.fab);
@@ -185,9 +186,9 @@ public class alerts extends AppCompatActivity {
         fabShowAlerts.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Intent k = new Intent(getApplicationContext(), add_alert.class);
-                //finish();
+                Intent k = new Intent(getApplicationContext(), ActiveAlerts.class);
                 backgroundStuff.cancel(true);
+                //finish();
                 startActivity(k);
 
             }
@@ -379,13 +380,23 @@ public class alerts extends AppCompatActivity {
             String parts[] = activeAlerts[i].split(":");
             if(checkIfReached(parts[0], parts[1])){
                 notificationBuilder.setContentTitle("Update");
-                notificationBuilder.setContentText("Price of " + parts[0] + " has reached " + parts[1] +"!");
+                notificationBuilder.setContentText("Price of " + parts[0] + " has reached " + parts[1] +", and is "+getCurrentPrice(parts[0])+"!");
                 // notificationID allows you to update the notification later on.
                 notificationManager.notify(getNumberForCurrency(parts[0]), notificationBuilder.build());
                 //db.deleteAlert(parts[1], parts[0]);
             }
         }
         return koinexJSONTicker;
+    }
+    float getCurrentPrice(String coin){
+        switch (coin){
+            case "XRP": return koinexJSONTicker.prices.XRP;
+            case "LTC": return koinexJSONTicker.prices.LTC;
+            case "ETH": return koinexJSONTicker.prices.ETH;
+            case "BCH": return koinexJSONTicker.prices.BCH;
+            case "BTC": return koinexJSONTicker.prices.BTC;
+            default: return 0;
+        }
     }
     int getNumberForCurrency(String c){
         switch (c){

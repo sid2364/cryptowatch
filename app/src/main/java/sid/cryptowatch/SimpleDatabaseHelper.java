@@ -108,7 +108,7 @@ public class SimpleDatabaseHelper {
         while (!cursor.isAfterLast()) {
             alarms[i++] = cursor.getString(cursor.getColumnIndex(KEY_CURRENCY)) + ":" + cursor.getString(cursor.getColumnIndex(KEY_AMOUNT));
             cursor.moveToNext();
-        }
+        } /* will return "XRP:100" */
         cursor.close();
         db.close();
         return alarms;
