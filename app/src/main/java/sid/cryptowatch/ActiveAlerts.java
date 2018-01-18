@@ -19,7 +19,12 @@ import android.widget.Toast;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 public class ActiveAlerts extends AppCompatActivity {
     SimpleDatabaseHelper db;
@@ -41,11 +46,26 @@ public class ActiveAlerts extends AppCompatActivity {
         toolbar.setTitleTextColor(Color.WHITE);
         setSupportActionBar(toolbar);
 
+        int i = 0;
         db = new SimpleDatabaseHelper(getApplicationContext());
         listView = findViewById(R.id.lvAlerts);
         String[] tempAlerts = db.getAllAlerts();
-        Arrays.sort(tempAlerts);
-        listItems = new ArrayList<String>(Arrays.asList(tempAlerts));
+        HashMap<Float, String> hashMapAlerts = new HashMap<>();
+        for(String alert: tempAlerts){
+            String parts[] = alert.split(":");
+            hashMapAlerts.put(Float.parseFloat(parts[1]), parts[0]); // reversing it for sorting, can't have multiple values for same key (obv.)
+        }
+
+        //Arrays.sort(tempAlerts);
+        //hashMapAlerts = sortHashMapByValues(hashMapAlerts);
+
+        Map<Float, String> map = new TreeMap<>(hashMapAlerts);
+        Arrays.fill(tempAlerts, null );
+
+        for(Map.Entry<Float, String> entry: map.entrySet()) {
+            tempAlerts[i++] = entry.getValue() + ":" + entry.getKey();
+        }
+        listItems = new ArrayList<>(Arrays.asList(tempAlerts));
         adapter = new ArrayAdapter<>(this, R.layout.list_item_aa, R.id.textView, listItems);
         listView.setAdapter(adapter);
 
@@ -92,5 +112,34 @@ public class ActiveAlerts extends AppCompatActivity {
             }
         });
         alert = builder.create();
+    }
+    public HashMap<String, Float> sortHashMapByValues(
+            HashMap<String, Float> passedMap) {
+        List<String> mapKeys = new ArrayList<>(passedMap.keySet());
+        List<Float> mapValues = new ArrayList<>(passedMap.values());
+        Collections.sort(mapValues);
+        Collections.sort(mapKeys);
+
+        HashMap<String, Float> sortedMap =
+                new HashMap<>();
+
+        Iterator<Float> valueIt = mapValues.iterator();
+        while (valueIt.hasNext()) {
+            float val = valueIt.next();
+            Iterator<String> keyIt = mapKeys.iterator();
+
+            while (keyIt.hasNext()) {
+                String key = keyIt.next();
+                float comp1 = passedMap.get(key);
+                float comp2 = val;
+
+                if (comp1 == comp2) {
+                    keyIt.remove();
+                    sortedMap.put(key, val);
+                    break;
+                }
+            }
+        }
+        return sortedMap;
     }
 }
