@@ -56,11 +56,11 @@ public class alerts extends AppCompatActivity {
     static int notifyCounter;
     NotificationManager notificationManager;
     NotificationCompat.Builder notificationBuilder;
-    RetrieveDataTask backgroundStuff;
+    static RetrieveDataTask backgroundStuff;
     HashMap<String, ArrayList<Float>> last_n_prices_per_curr;
     //ArrayList<Integer> last_n_prices;
     public static boolean IsClosingActivities = false;
-    int numberOfPricesForStability = 6;
+    int numberOfPricesForStability = 8;
     double permissibleStandardDeviationPercentage = 0.009; /* arbitrary selection */
     HashMap<String, Boolean> notifyIfStableHM;
 
@@ -84,9 +84,9 @@ public class alerts extends AppCompatActivity {
         getWindow().getDecorView().setBackgroundColor(Color.BLACK);
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+        db = new SimpleDatabaseHelper(getApplicationContext());
         listViewCurrentPrices = findViewById( R.id.listViewPrices);
         koinexJSONTicker = new KoinexJSONTicker();
-        db = new SimpleDatabaseHelper(getApplicationContext());
         backgroundStuff = new RetrieveDataTask(this);
         //last_n_prices = new ArrayList<>();
         last_n_prices_per_curr = new HashMap<>();
@@ -103,11 +103,22 @@ public class alerts extends AppCompatActivity {
                 new int[]{R.id.textHeader, R.id.textSub});
 
         getPricesFromLastOpen();
+        putData();
+        listViewCurrentPrices.setAdapter(adapter);
+        Iterator it = prices.entrySet().iterator();
+        listItems.clear();
+        while(it.hasNext()) {
+            HashMap<String, String> resultsMap = new HashMap<>();
+            Map.Entry pair = (Map.Entry) it.next();
+            resultsMap.put("Currency", pair.getKey().toString());
+            resultsMap.put("Price", pair.getValue().toString() + " (outdated)");
+            listItems.add(resultsMap);
+        }
+        adapter.notifyDataSetChanged();
 
         backgroundStuff.execute("https://koinex.in/api/ticker");
-                //new RetrieveDataTask().execute("https://koinex.in/api/ticker");
+        //new RetrieveDataTask(this).execute("https://koinex.in/api/ticker");
 
-        listViewCurrentPrices.setAdapter(adapter);
 
         notificationBuilder.setSmallIcon(R.drawable.ic_launcher_foreground);
         PendingIntent contentIntent = PendingIntent.getActivity(this, 0, notificationIntent,
@@ -267,7 +278,7 @@ public class alerts extends AppCompatActivity {
     Note to self: always allow for scaling application up and not limiting ANYTHING to
     what your present idea of implementation is. THINK OUT OF THE BOX!
      */
-    public void getPricesFromLastOpen(){
+    public synchronized void getPricesFromLastOpen(){
         koinexJSONTicker.prices.BTC = db.getCurrent("BTC");
         koinexJSONTicker.prices.XRP = db.getCurrent("XRP");
         koinexJSONTicker.prices.LTC = db.getCurrent("LTC");
@@ -279,7 +290,7 @@ public class alerts extends AppCompatActivity {
         addToListOfPrices("BCH", koinexJSONTicker.prices.BCH);
         addToListOfPrices("LTC", koinexJSONTicker.prices.LTC);
     }
-    public void updateCurrentPrices(){
+    public synchronized void updateCurrentPrices(){
         db.updateCurrent(koinexJSONTicker.prices.ETH+"", "ETH");
         db.updateCurrent(koinexJSONTicker.prices.BTC+"", "BTC");
         db.updateCurrent(koinexJSONTicker.prices.XRP+"", "XRP");
@@ -452,6 +463,13 @@ public class alerts extends AppCompatActivity {
         }
         jsonObject = new JSONObject(this.jsonText);
     }
+    public void putData(){
+        prices.put("Bitcoin", koinexJSONTicker.prices.BTC+"");
+        prices.put("Ether", koinexJSONTicker.prices.ETH+"");
+        prices.put("Ripple", koinexJSONTicker.prices.XRP+"");
+        prices.put("Litecoin", koinexJSONTicker.prices.LTC+"");
+        prices.put("Bitcoin Cash", koinexJSONTicker.prices.BCH+"");
+    }
 
     public void refreshPriceList(HashMap<String, String> prices, List<HashMap<String, String>>listItems, final SimpleAdapter adapter) throws IOException, JSONException {
         try{
@@ -467,11 +485,14 @@ public class alerts extends AppCompatActivity {
 
         koinexJSONTicker = decodeToParsable();
         //System.out.println("Reached here with " + koinexJSONTicker.prices.BTC);
+        /*
         prices.put("Bitcoin", koinexJSONTicker.prices.BTC+"");
         prices.put("Ether", koinexJSONTicker.prices.ETH+"");
         prices.put("Ripple", koinexJSONTicker.prices.XRP+"");
         prices.put("Litecoin", koinexJSONTicker.prices.LTC+"");
         prices.put("Bitcoin Cash", koinexJSONTicker.prices.BCH+"");
+         */
+        putData();
 
         Iterator it = prices.entrySet().iterator();
         listItems.clear();
